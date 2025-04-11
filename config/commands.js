@@ -1,6 +1,8 @@
 /**
  * Configuración de los comandos disponibles en el bot
  */
+const dynamoDbService = require('../src/services/dynamoDbService');
+
 module.exports = {
     // Comando de ayuda
     '!ayuda': {
@@ -45,6 +47,41 @@ module.exports = {
         handler: async (message) => {
             const now = new Date();
             return message.reply(`La hora actual es: ${now.toLocaleTimeString()}`);
+        }
+    },
+    
+    // Comando para obtener los últimos mensajes
+    '!mensajes': {
+        description: 'Muestra los últimos mensajes recibidos de tu número',
+        handler: async (message) => {
+            try {
+                const contact = await message.getContact();
+                const phoneNumber = contact.number;
+                
+                const messages = await dynamoDbService.getMessagesByPhone(phoneNumber);
+                
+                if (!messages || messages.length === 0) {
+                    return message.reply('No se encontraron mensajes guardados para tu número.');
+                }
+                
+                // Mostrar solo los últimos 5 mensajes para no sobrecargar
+                const recentMessages = messages.slice(0, 5);
+                
+                const messageList = recentMessages.map(msg => {
+                    const date = new Date(msg.timestamp).toLocaleString();
+                    
+                    if (msg.type === 'text') {
+                        return `📝 *${date}*: ${msg.content.substring(0, 50)}${msg.content.length > 50 ? '...' : ''}`;
+                    } else {
+                        return `📎 *${date}*: Archivo ${msg.type} - ${msg.filename || 'Sin nombre'}`;
+                    }
+                }).join('\n\n');
+                
+                return message.reply(`*Tus últimos mensajes:*\n\n${messageList}`);
+            } catch (error) {
+                console.error('Error al obtener mensajes:', error);
+                return message.reply('Ocurrió un error al recuperar tus mensajes.');
+            }
         }
     }
 }; 

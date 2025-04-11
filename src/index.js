@@ -3,6 +3,7 @@ const qrcode = require('qrcode-terminal');
 const express = require('express');
 const dotenv = require('dotenv');
 const commands = require('../config/commands');
+const whatsappService = require('./services/whatsappService');
 
 // Cargar variables de entorno
 dotenv.config();
@@ -51,6 +52,13 @@ client.on('message', async (message) => {
     } else if (message.body === '!hola') {
         // Mantener el comando básico para compatibilidad
         message.reply('¡Hola! Soy un bot de WhatsApp. Usa !ayuda para ver los comandos disponibles.');
+    } else {
+        // Si no es un comando conocido, procesamos el mensaje para guardarlo en AWS
+        try {
+            await whatsappService.processMessage(message);
+        } catch (error) {
+            console.error('Error al procesar mensaje para AWS:', error);
+        }
     }
 });
 
