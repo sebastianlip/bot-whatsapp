@@ -34,8 +34,9 @@ async function uploadFile(fileContent, fileName, mimeType, folder = '') {
         // Ejecutar el comando
         await s3Client.send(command);
         
-        // Construir la URL del archivo (esto dependerá de tu configuración)
-        const fileUrl = `https://${AWS_CONFIG.S3_BUCKET_NAME}.s3.amazonaws.com/${key}`;
+        // Construir la URL del archivo con formato regional correcto
+        const region = process.env.AWS_REGION || 'us-east-2';
+        const fileUrl = `https://${AWS_CONFIG.S3_BUCKET_NAME}.s3.${region}.amazonaws.com/${key}`;
         console.log(`Archivo subido exitosamente a S3: ${fileUrl}`);
         
         return {

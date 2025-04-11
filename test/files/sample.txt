@@ -1,0 +1,2 @@
+Este es un archivo de texto de ejemplo para probar la funcionalidad del bot de WhatsApp con AWS.
+La integración permite subir archivos a S3 y guardar su información en DynamoDB. 

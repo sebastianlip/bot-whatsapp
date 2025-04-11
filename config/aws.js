@@ -6,13 +6,15 @@ const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient } = require('@aws-sdk/lib-dynamodb');
 
 // Configuración de la región de AWS
-const REGION = process.env.AWS_REGION || 'us-east-1';
+const REGION = process.env.AWS_REGION || 'us-east-2';
 
 // Crear cliente de S3
 const s3Client = new S3Client({ 
     region: REGION,
     // Las credenciales se tomarán automáticamente del perfil de CLI configurado
     // o de las variables de entorno AWS_ACCESS_KEY_ID y AWS_SECRET_ACCESS_KEY
+    endpoint: `https://s3.${REGION}.amazonaws.com`,
+    forcePathStyle: false
 });
 
 // Crear cliente base de DynamoDB

@@ -1,7 +1,7 @@
 /**
  * Servicio para manejar operaciones con Amazon DynamoDB
  */
-const { PutCommand, GetCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
+const { PutCommand, GetCommand, QueryCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
 const { ddbDocClient, AWS_CONFIG } = require('../../config/aws');
 
 /**
@@ -34,6 +34,12 @@ async function saveMessageData(messageData) {
         return messageData;
     } catch (error) {
         console.error('Error al guardar datos en DynamoDB:', error);
+        
+        // Si la tabla no existe, intentar crearla
+        if (error.name === 'ResourceNotFoundException') {
+            console.log('La tabla no existe. Por favor, crea la tabla primero.');
+        }
+        
         throw error;
     }
 }
@@ -45,21 +51,38 @@ async function saveMessageData(messageData) {
  */
 async function getMessagesByPhone(phoneNumber) {
     try {
-        // Configurar el comando para consultar la tabla
-        const command = new QueryCommand({
-            TableName: AWS_CONFIG.DYNAMODB_TABLE_NAME,
-            IndexName: 'PhoneNumberIndex', // Asumiendo que tienes este índice secundario global
-            KeyConditionExpression: 'phoneNumber = :phone',
-            ExpressionAttributeValues: {
-                ':phone': phoneNumber
-            },
-            ScanIndexForward: false // Para ordenar por el más reciente primero
-        });
-        
-        // Ejecutar el comando
-        const result = await ddbDocClient.send(command);
-        
-        return result.Items || [];
+        // Primero intentamos usar el índice secundario
+        try {
+            // Configurar el comando para consultar la tabla por índice
+            const command = new QueryCommand({
+                TableName: AWS_CONFIG.DYNAMODB_TABLE_NAME,
+                IndexName: 'PhoneNumberIndex', // Asumiendo que tienes este índice secundario global
+                KeyConditionExpression: 'phoneNumber = :phone',
+                ExpressionAttributeValues: {
+                    ':phone': phoneNumber
+                },
+                ScanIndexForward: false // Para ordenar por el más reciente primero
+            });
+            
+            // Ejecutar el comando
+            const result = await ddbDocClient.send(command);
+            return result.Items || [];
+        } catch (indexError) {
+            // Si falla la consulta por índice (tal vez no existe el índice),
+            // hacemos un scan con filtro (menos eficiente pero funcional)
+            console.log("No se pudo usar el índice secundario, usando scan como alternativa");
+            
+            const command = new ScanCommand({
+                TableName: AWS_CONFIG.DYNAMODB_TABLE_NAME,
+                FilterExpression: 'phoneNumber = :phone',
+                ExpressionAttributeValues: {
+                    ':phone': phoneNumber
+                }
+            });
+            
+            const result = await ddbDocClient.send(command);
+            return result.Items || [];
+        }
     } catch (error) {
         console.error(`Error al obtener mensajes para el número ${phoneNumber}:`, error);
         throw error;
