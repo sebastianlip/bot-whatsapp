@@ -1,49 +1,80 @@
-# Bot WhatsApp
+# Bot de WhatsApp con Dashboard
 
-Un bot para WhatsApp desarrollado con Node.js y la biblioteca whatsapp-web.js.
+Sistema para gestionar archivos compartidos a través de WhatsApp, con una interfaz de administración web desarrollada en Angular.
+
+## Estructura del Proyecto
+
+- **frontend/**: Aplicación Angular para la gestión de archivos
+  - **whatsapp-dashboard/**: Dashboard administrativo
+  
+- **backend/**: Servicios de backend y función Lambda
+  - **lambda/**: Funciones Lambda para AWS
+    - **uploadFile.js**: Función para subir archivos a S3
+    - **getUserFiles.js**: Función para obtener archivos de S3
+    - **apigateway-config.json**: Configuración de API Gateway
+
+- **config/**: Archivos de configuración para AWS
+
+- **documentation/**: Documentación del proyecto
+  - **whatsapp-bot-configuracion.md**: Guía completa de configuración
 
 ## Requisitos
 
-- Node.js 14 o superior
-- NPM
+- Node.js 14.x o superior
+- Angular CLI
+- Cuenta de AWS con servicios:
+  - Lambda
+  - API Gateway
+  - S3
+  - DynamoDB
 
 ## Instalación
 
-1. Clona este repositorio
+1. Clonar el repositorio
 ```bash
-git clone <url-del-repositorio>
-cd bot-whatsapp
+git clone https://github.com/tu-usuario/whatsapp-bot.git
+cd whatsapp-bot
 ```
 
-2. Instala las dependencias
+2. Instalar dependencias generales
 ```bash
 npm install
 ```
 
-3. Configura las variables de entorno
+3. Instalar dependencias del frontend
 ```bash
-cp .env.example .env
-# Edita el archivo .env según tus necesidades
+cd frontend/whatsapp-dashboard
+npm install
 ```
 
-## Uso
+4. Configurar AWS (ver documentación/whatsapp-bot-configuracion.md)
 
-Para iniciar el bot en modo desarrollo:
+## Ejecución
+
+### Dashboard Angular
 ```bash
-npm run dev
+cd frontend/whatsapp-dashboard
+ng serve
 ```
 
-Para iniciar el bot en producción:
-```bash
-npm start
-```
+El dashboard estará disponible en http://localhost:4200/
 
-## Características
+### Desplegar funciones Lambda
 
-- Respuesta automática a mensajes
-- Procesamiento de comandos
-- Interfaz web básica para monitoreo
+Sigue los pasos en la documentación para desplegar las funciones Lambda en AWS.
+
+## Uso del Dashboard
+
+El dashboard permite:
+- Ver archivos recibidos por WhatsApp
+- Filtrar archivos por número de teléfono
+- Descargar archivos
+- Simular el envío de archivos a través de WhatsApp
+
+## Configuración de AWS
+
+Ver el archivo de documentación para detalles completos sobre la configuración de AWS.
 
 ## Licencia
 
-MIT 
+Este proyecto está bajo la Licencia MIT. 

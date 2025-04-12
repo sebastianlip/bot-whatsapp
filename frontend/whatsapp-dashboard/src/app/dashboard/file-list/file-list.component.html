@@ -1,0 +1,87 @@
+<div style="padding: 20px; max-width: 1200px; margin: 0 auto;">
+  <h1 style="font-size: 24px; margin-bottom: 20px;">Lista de Archivos</h1>
+  
+  <div style="margin-bottom: 20px; background-color: #f5f5f5; padding: 10px; border-radius: 4px; display: flex; align-items: center;">
+    <button 
+      style="background-color: #25D366; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-right: 15px;"
+      (click)="loadFiles()"
+    >
+      Actualizar
+    </button>
+    
+    <div style="display: flex; align-items: center;">
+      <input 
+        type="text" 
+        placeholder="Filtrar por teléfono" 
+        [(ngModel)]="phoneNumber"
+        style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 200px;"
+      />
+      <button 
+        style="background-color: #075E54; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-left: 10px;"
+        (click)="filterByPhoneNumber()"
+      >
+        Filtrar
+      </button>
+    </div>
+  </div>
+  
+  <!-- Mensaje de error -->
+  <div *ngIf="error" style="background-color: #f8d7da; color: #721c24; padding: 10px; border-radius: 4px; margin-bottom: 15px;">
+    {{ error }}
+  </div>
+  
+  <div *ngIf="loading" style="text-align: center; padding: 20px;">
+    Cargando archivos...
+  </div>
+  
+  <table *ngIf="!loading && files.length > 0" style="width: 100%; border-collapse: collapse;">
+    <thead>
+      <tr style="background-color: #f5f5f5;">
+        <th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">Fecha</th>
+        <th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">Tipo</th>
+        <th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">Nombre</th>
+        <th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">Contacto</th>
+        <th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">Teléfono</th>
+        <th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let file of files" style="border-bottom: 1px solid #eee;">
+        <td style="padding: 10px;">{{ formatDate(file.timestamp) }}</td>
+        <td style="padding: 10px;">
+          <span 
+            [style.background-color]="file.type === 'image' ? '#3498db' : file.type === 'document' ? '#2ecc71' : '#e74c3c'"
+            style="color: white; padding: 3px 8px; border-radius: 4px; font-size: 12px;"
+          >
+            {{ file.type }}
+          </span>
+        </td>
+        <td style="padding: 10px;">{{ file.filename }}</td>
+        <td style="padding: 10px;">{{ file.contactName }}</td>
+        <td style="padding: 10px;">{{ file.phoneNumber }}</td>
+        <td style="padding: 10px;">
+          <button 
+            style="background-color: #2ecc71; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-right: 5px;"
+            (click)="downloadFile(file)"
+            [disabled]="!file.downloadUrl"
+          >
+            Descargar
+          </button>
+          
+          <a 
+            *ngIf="file.fileUrl"
+            style="background-color: #3498db; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block;"
+            [href]="file.fileUrl" 
+            target="_blank"
+          >
+            Ver
+          </a>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  
+  <div *ngIf="!loading && files.length === 0" style="text-align: center; padding: 40px; background-color: #f9f9f9; border-radius: 4px;">
+    No se encontraron archivos.
+  </div>
+</div>
