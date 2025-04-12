@@ -2,36 +2,22 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { UploadService } from '../core/services/upload.service';
-import { MessageService } from 'primeng/api';
 
-// PrimeNG
-import { CardModule } from 'primeng/card';
-import { ButtonModule } from 'primeng/button';
-import { InputTextModule } from 'primeng/inputtext';
-import { InputMaskModule } from 'primeng/inputmask';
-import { FileUploadModule } from 'primeng/fileupload';
-import { ToastModule } from 'primeng/toast';
-import { ProgressSpinnerModule } from 'primeng/progressspinner';
-import { DividerModule } from 'primeng/divider';
+interface Message {
+  severity: string;
+  summary: string;
+  detail: string;
+}
 
 @Component({
   selector: 'app-whatsapp-simulator',
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
-    CardModule,
-    ButtonModule,
-    InputTextModule,
-    InputMaskModule,
-    FileUploadModule,
-    ToastModule,
-    ProgressSpinnerModule,
-    DividerModule
+    FormsModule
   ],
   templateUrl: './whatsapp-simulator.component.html',
-  styleUrls: ['./whatsapp-simulator.component.scss'],
-  providers: [MessageService]
+  styleUrls: ['./whatsapp-simulator.component.scss']
 })
 export class WhatsappSimulatorComponent implements OnInit {
   phoneNumber: string = '';
@@ -39,15 +25,25 @@ export class WhatsappSimulatorComponent implements OnInit {
   selectedFile: File | null = null;
   isUploading: boolean = false;
   uploadedFiles: any[] = [];
+  messages: Message[] = [];
 
   constructor(
-    private uploadService: UploadService,
-    private messageService: MessageService
+    private uploadService: UploadService
   ) { }
 
   ngOnInit(): void {
     // Inicializar con el número del usuario actual o un valor predeterminado
     this.phoneNumber = '+54';
+  }
+
+  /**
+   * Eliminar un mensaje de la lista
+   */
+  removeMessage(message: Message): void {
+    this.messages = this.messages.filter(m => 
+      m.summary !== message.summary || 
+      m.detail !== message.detail
+    );
   }
 
   /**
@@ -62,35 +58,37 @@ export class WhatsappSimulatorComponent implements OnInit {
   }
 
   /**
+   * Agregar mensaje al usuario
+   */
+  addMessage(severity: string, summary: string, detail: string): void {
+    this.messages = [...this.messages, { severity, summary, detail }];
+    
+    // Eliminar el mensaje después de 5 segundos
+    setTimeout(() => {
+      this.messages = this.messages.filter(m => 
+        m.summary !== summary || m.detail !== detail
+      );
+    }, 5000);
+  }
+
+  /**
    * Enviar archivo simulando WhatsApp
    */
   sendFile(): void {
     if (!this.selectedFile) {
-      this.messageService.add({
-        severity: 'error', 
-        summary: 'Error', 
-        detail: 'Por favor, selecciona un archivo'
-      });
+      this.addMessage('danger', 'Error', 'Por favor, selecciona un archivo');
       return;
     }
 
     if (!this.phoneNumber || this.phoneNumber.length < 10) {
-      this.messageService.add({
-        severity: 'error', 
-        summary: 'Error', 
-        detail: 'Ingresa un número de teléfono válido'
-      });
+      this.addMessage('danger', 'Error', 'Ingresa un número de teléfono válido');
       return;
     }
 
     // Verificar tamaño del archivo (máximo 5MB)
     const maxSizeInBytes = 5 * 1024 * 1024; // 5MB
     if (this.selectedFile.size > maxSizeInBytes) {
-      this.messageService.add({
-        severity: 'error', 
-        summary: 'Error', 
-        detail: 'El archivo es demasiado grande. El tamaño máximo permitido es 5MB.'
-      });
+      this.addMessage('danger', 'Error', 'El archivo es demasiado grande. El tamaño máximo permitido es 5MB.');
       return;
     }
 
@@ -118,11 +116,7 @@ export class WhatsappSimulatorComponent implements OnInit {
             `${result.error} - ${result.details}` : 
             result.error;
           
-          this.messageService.add({
-            severity: 'error',
-            summary: 'Error',
-            detail: `Error al subir el archivo: ${errorDetail}`
-          });
+          this.addMessage('danger', 'Error', `Error al subir el archivo: ${errorDetail}`);
           
           console.error('Detalles del error:', result);
         } else {
@@ -132,11 +126,7 @@ export class WhatsappSimulatorComponent implements OnInit {
       error: (err) => {
         console.error('Error en el servicio de carga:', err);
         this.isUploading = false;
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Error',
-          detail: `No se pudo enviar el archivo: ${err.message || 'Error desconocido'}`
-        });
+        this.addMessage('danger', 'Error', `No se pudo enviar el archivo: ${err.message || 'Error desconocido'}`);
       }
     });
   }
@@ -154,11 +144,7 @@ export class WhatsappSimulatorComponent implements OnInit {
       fileUrl: result.fileUrl || 'https://via.placeholder.com/150'
     });
     
-    this.messageService.add({
-      severity: 'success',
-      summary: 'Éxito',
-      detail: 'Archivo enviado correctamente'
-    });
+    this.addMessage('success', 'Éxito', 'Archivo enviado correctamente');
     
     // Limpiar selección
     this.selectedFile = null;

@@ -1,93 +1,104 @@
-<div class="whatsapp-simulator-container">
-  <p-toast position="top-right"></p-toast>
+<div class="container py-4">
+  <div *ngFor="let msg of messages" class="alert" 
+       [ngClass]="'alert-' + msg.severity" role="alert">
+    <strong>{{ msg.summary }}</strong> {{ msg.detail }}
+    <button type="button" class="btn-close" aria-label="Close" 
+            (click)="removeMessage(msg)"></button>
+  </div>
   
-  <p-card header="Simulador de WhatsApp" styleClass="whatsapp-card">
-    <div class="wa-header">
-      <span class="wa-icon">
-        <svg viewBox="0 0 32 32" width="32" height="32">
-          <path fill="#25D366" d="M16,2A14,14,0,0,0,4.8,23.4L2.4,29.8l6.6-2.1A14,14,0,1,0,16,2Zm0,25.6A11.6,11.6,0,0,1,10.1,26l-4.3,1.4,1.4-4.2a11.6,11.6,0,1,1,8.8,4.4Z"></path>
-          <path fill="#25D366" d="M22.7,17.5c-.2-.1-1.1-.6-1.3-.6s-.3-.1-.4.1-.5.6-.6.8-.2.1-.4,0a5.2,5.2,0,0,1-1.5-.9,5.7,5.7,0,0,1-1.1-1.3c-.1-.2,0-.3.1-.4l.3-.3.2-.3a.2.2,0,0,0,0-.3l-.6-1.4c-.1-.3-.3-.4-.4-.4s-.2,0-.4,0a.8.8,0,0,0-.6.5,2.5,2.5,0,0,0-.8,1.8,4.3,4.3,0,0,0,.9,2.2,9.7,9.7,0,0,0,3.8,3.3,3.7,3.7,0,0,0,2.4.5,2.4,2.4,0,0,0,1.5-1.1,1.9,1.9,0,0,0,.1-1.1C23,17.6,22.8,17.6,22.7,17.5Z"></path>
-        </svg>
-      </span>
-      <span class="wa-title">WhatsApp</span>
-    </div>
-    
-    <div class="wa-body">
-      <div class="wa-form">
-        <div class="form-group">
-          <label for="phoneNumber">Número de Teléfono</label>
-          <p-inputMask 
-            id="phoneNumber"
-            [(ngModel)]="phoneNumber"
-            mask="+99 999 9999999" 
-            placeholder="+54 911 12345678"
-            styleClass="w-100">
-          </p-inputMask>
-        </div>
-        
-        <div class="form-group">
-          <label for="contactName">Nombre de Contacto (opcional)</label>
-          <input 
-            pInputText 
-            id="contactName"
-            [(ngModel)]="contactName"
-            type="text" 
-            placeholder="Nombre de Contacto" 
-            class="w-100">
-        </div>
-        
-        <div class="form-group">
-          <label for="fileInput">Archivo</label>
-          <div class="file-upload-container">
-            <input 
-              type="file" 
-              id="fileInput" 
-              (change)="onFileSelect($event)"
-              accept="image/*,application/pdf,video/*,audio/*,text/plain">
-              
-            <span class="file-name" *ngIf="selectedFile">
-              {{ selectedFile.name }}
-            </span>
-            <span class="file-hint" *ngIf="!selectedFile">
-              Selecciona una imagen, video, documento o audio
-            </span>
-          </div>
-        </div>
-        
-        <div class="form-actions">
-          <button 
-            pButton 
-            icon="pi pi-send" 
-            label="Enviar" 
-            [disabled]="isUploading || !selectedFile"
-            (click)="sendFile()"
-            class="send-button">
-          </button>
-          
-          <p-progressSpinner *ngIf="isUploading" [style]="{width: '30px', height: '30px'}"></p-progressSpinner>
-        </div>
+  <div class="card">
+    <div class="card-header bg-light">
+      <div class="d-flex align-items-center">
+        <span class="me-2">
+          <svg viewBox="0 0 32 32" width="32" height="32">
+            <path fill="#25D366" d="M16,2A14,14,0,0,0,4.8,23.4L2.4,29.8l6.6-2.1A14,14,0,1,0,16,2Zm0,25.6A11.6,11.6,0,0,1,10.1,26l-4.3,1.4,1.4-4.2a11.6,11.6,0,1,1,8.8,4.4Z"></path>
+            <path fill="#25D366" d="M22.7,17.5c-.2-.1-1.1-.6-1.3-.6s-.3-.1-.4.1-.5.6-.6.8-.2.1-.4,0a5.2,5.2,0,0,1-1.5-.9,5.7,5.7,0,0,1-1.1-1.3c-.1-.2,0-.3.1-.4l.3-.3.2-.3a.2.2,0,0,0,0-.3l-.6-1.4c-.1-.3-.3-.4-.4-.4s-.2,0-.4,0a.8.8,0,0,0-.6.5,2.5,2.5,0,0,0-.8,1.8,4.3,4.3,0,0,0,.9,2.2,9.7,9.7,0,0,0,3.8,3.3,3.7,3.7,0,0,0,2.4.5,2.4,2.4,0,0,0,1.5-1.1,1.9,1.9,0,0,0,.1-1.1C23,17.6,22.8,17.6,22.7,17.5Z"></path>
+          </svg>
+        </span>
+        <h5 class="card-title mb-0">Simulador de WhatsApp</h5>
       </div>
     </div>
-  </p-card>
-  
-  <p-divider *ngIf="uploadedFiles.length > 0"></p-divider>
-  
-  <div class="uploaded-files" *ngIf="uploadedFiles.length > 0">
-    <h3>Archivos Enviados</h3>
     
-    <div class="file-list">
-      <p-card *ngFor="let file of uploadedFiles" styleClass="file-card">
-        <div class="file-info">
-          <div class="file-preview" *ngIf="file.fileUrl">
-            <img [src]="file.fileUrl" alt="Preview" class="preview-image">
+    <div class="card-body">
+      <form>
+        <div class="mb-3">
+          <label for="phoneNumber" class="form-label">Número de Teléfono</label>
+          <input 
+            type="text" 
+            class="form-control" 
+            id="phoneNumber"
+            [(ngModel)]="phoneNumber"
+            name="phoneNumber"
+            placeholder="+54 911 12345678">
+        </div>
+        
+        <div class="mb-3">
+          <label for="contactName" class="form-label">Nombre de Contacto (opcional)</label>
+          <input 
+            type="text" 
+            class="form-control" 
+            id="contactName"
+            [(ngModel)]="contactName"
+            name="contactName"
+            placeholder="Nombre de Contacto">
+        </div>
+        
+        <div class="mb-3">
+          <label for="fileInput" class="form-label">Archivo</label>
+          <input 
+            type="file" 
+            class="form-control" 
+            id="fileInput" 
+            (change)="onFileSelect($event)"
+            accept="image/*,application/pdf,video/*,audio/*,text/plain">
+          
+          <div *ngIf="selectedFile" class="mt-2 text-secondary">
+            Archivo seleccionado: {{ selectedFile.name }}
           </div>
-          <div class="file-details">
-            <p class="file-name">{{ file.fileName }}</p>
-            <p class="file-meta">Enviado a: {{ file.contactName }} ({{ file.phoneNumber }})</p>
-            <p class="file-date">{{ file.timestamp | date:'medium' }}</p>
+          <div *ngIf="!selectedFile" class="mt-2 text-muted">
+            Selecciona una imagen, video, documento o audio
           </div>
         </div>
-      </p-card>
+        
+        <div class="d-flex align-items-center">
+          <button 
+            type="button"
+            class="btn btn-success" 
+            [disabled]="isUploading || !selectedFile"
+            (click)="sendFile()">
+            <i class="bi bi-send me-1"></i> Enviar
+          </button>
+          
+          <div *ngIf="isUploading" class="spinner-border spinner-border-sm ms-3" role="status">
+            <span class="visually-hidden">Cargando...</span>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+  
+  <hr *ngIf="uploadedFiles.length > 0" class="my-4">
+  
+  <div *ngIf="uploadedFiles.length > 0" class="mt-4">
+    <h3>Archivos Enviados</h3>
+    
+    <div class="row">
+      <div class="col-md-6 col-lg-4 mb-3" *ngFor="let file of uploadedFiles">
+        <div class="card h-100">
+          <div *ngIf="file.fileUrl" class="card-img-top">
+            <img [src]="file.fileUrl" alt="Preview" class="img-fluid rounded-top">
+          </div>
+          <div class="card-body">
+            <h5 class="card-title">{{ file.fileName }}</h5>
+            <p class="card-text text-muted">
+              Enviado a: {{ file.contactName }} ({{ file.phoneNumber }})
+            </p>
+            <p class="card-text">
+              <small class="text-muted">{{ file.timestamp | date:'medium' }}</small>
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
