@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <!-- Fondo gris claro -->
+  <rect width="200" height="200" fill="#f0f0f0"/>
+  
+  <!-- Borde ligero -->
+  <rect x="1" y="1" width="198" height="198" fill="none" stroke="#ddd" stroke-width="2"/>
+  
+  <!-- Icono de imagen -->
+  <path d="M130,70 L70,70 C62.268,70 56,76.268 56,84 L56,116 C56,123.732 62.268,130 70,130 L130,130 C137.732,130 144,123.732 144,116 L144,84 C144,76.268 137.732,70 130,70 Z M140,116 C140,121.514 135.514,126 130,126 L70,126 C64.486,126 60,121.514 60,116 L60,84 C60,78.486 64.486,74 70,74 L130,74 C135.514,74 140,78.486 140,84 L140,116 Z" fill="#999"/>
+  
+  <!-- Montaña (parte del icono de imagen) -->
+  <path d="M97,90 L110,110 L125,90 L125,117 L75,117 L75,98 L85,108 L97,90 Z" fill="#999"/>
+  
+  <!-- Sol (parte del icono de imagen) -->
+  <circle cx="122" cy="86" r="6" fill="#999"/>
+  
+  <!-- Texto "Imagen no disponible" -->
+  <text x="100" y="150" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#666">Imagen no disponible</text>
+</svg> 

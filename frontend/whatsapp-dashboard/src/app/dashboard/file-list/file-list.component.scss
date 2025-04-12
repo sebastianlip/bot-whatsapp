@@ -1,0 +1,368 @@
+.file-manager-container {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  
+  h1 {
+    font-size: 24px;
+    margin-bottom: 20px;
+    color: #333;
+  }
+}
+
+// Estilos para la sección superior
+.header-section {
+  margin-bottom: 20px;
+  
+  .toolbar {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+    
+    .search-section {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      
+      .p-input-icon-left {
+        width: 280px;
+      }
+    }
+    
+    .view-controls {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+  }
+}
+
+// Vista de tarjetas (grid)
+.grid-view {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+  
+  .file-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    background-color: white;
+    transition: transform 0.2s, box-shadow 0.2s;
+    
+    &:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    
+    .card-header {
+      padding: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #f8f9fa;
+      border-bottom: 1px solid #e0e0e0;
+      
+      .file-date {
+        font-size: 12px;
+        color: #666;
+      }
+    }
+    
+    .card-content {
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 180px;
+      
+      .image-preview {
+        width: 100%;
+        height: 150px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 15px;
+        overflow: hidden;
+        
+        img {
+          max-width: 100%;
+          max-height: 150px;
+          object-fit: contain;
+        }
+      }
+      
+      .document-icon,
+      .audio-icon,
+      .video-icon,
+      .file-icon {
+        width: 80px;
+        height: 80px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 15px;
+        
+        i {
+          font-size: 48px;
+          
+          &.pi-file-pdf {
+            color: #f44336;
+          }
+          
+          &.pi-file-excel {
+            color: #4caf50;
+          }
+          
+          &.pi-file-word {
+            color: #2196f3;
+          }
+          
+          &.pi-volume-up {
+            color: #9c27b0;
+          }
+          
+          &.pi-video {
+            color: #ff9800;
+          }
+          
+          &.pi-file {
+            color: #607d8b;
+          }
+        }
+      }
+      
+      .file-info {
+        width: 100%;
+        text-align: center;
+        
+        .file-name {
+          font-size: 16px;
+          margin-bottom: 10px;
+          word-break: break-word;
+        }
+        
+        .contact-info,
+        .phone-number {
+          font-size: 14px;
+          color: #666;
+          margin: 5px 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 5px;
+        }
+      }
+    }
+    
+    .card-actions {
+      padding: 10px 15px;
+      display: flex;
+      justify-content: space-between;
+      border-top: 1px solid #e0e0e0;
+      background-color: #f8f9fa;
+    }
+  }
+}
+
+// Estilos para tipos de archivo
+.file-type-badge {
+  background-color: #ccc;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  text-transform: uppercase;
+  
+  &.file-type-image {
+    background-color: #2196f3;
+  }
+  
+  &.file-type-document {
+    background-color: #4caf50;
+  }
+  
+  &.file-type-audio {
+    background-color: #9c27b0;
+  }
+  
+  &.file-type-video {
+    background-color: #ff9800;
+  }
+  
+  &.file-type-file {
+    background-color: #607d8b;
+  }
+}
+
+// Estilos para pantalla de carga
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 50px 0;
+  
+  p {
+    margin-top: 20px;
+    color: #666;
+  }
+}
+
+// Estilos para mensaje de "no hay archivos"
+.no-files-message {
+  text-align: center;
+  padding: 60px 20px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  
+  i {
+    font-size: 48px;
+    color: #ccc;
+    margin-bottom: 15px;
+  }
+  
+  p {
+    font-size: 18px;
+    color: #666;
+    margin-bottom: 20px;
+  }
+}
+
+// Estilos para el diálogo de detalles
+.file-details {
+  .file-details-header {
+    margin-bottom: 20px;
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 10px;
+    
+    h2 {
+      margin-bottom: 5px;
+    }
+    
+    .file-timestamp {
+      color: #666;
+      font-size: 14px;
+    }
+  }
+  
+  .file-details-content {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 30px;
+    
+    .file-preview {
+      flex: 1;
+      min-width: 300px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      
+      .full-preview {
+        max-width: 100%;
+        max-height: 400px;
+        object-fit: contain;
+      }
+      
+      .file-type-icon {
+        width: 120px;
+        height: 120px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        
+        i {
+          font-size: 80px;
+          
+          &.pi-file-pdf {
+            color: #f44336;
+          }
+          
+          &.pi-file-excel {
+            color: #4caf50;
+          }
+          
+          &.pi-file-word {
+            color: #2196f3;
+          }
+          
+          &.pi-volume-up {
+            color: #9c27b0;
+          }
+          
+          &.pi-video {
+            color: #ff9800;
+          }
+          
+          &.pi-file {
+            color: #607d8b;
+          }
+        }
+      }
+    }
+    
+    .file-metadata {
+      flex: 1;
+      min-width: 300px;
+      
+      h3 {
+        margin-bottom: 15px;
+        font-size: 18px;
+        color: #333;
+      }
+      
+      ul {
+        list-style: none;
+        padding: 0;
+        
+        li {
+          padding: 8px 0;
+          border-bottom: 1px solid #f0f0f0;
+          
+          &:last-child {
+            border-bottom: none;
+          }
+          
+          strong {
+            display: inline-block;
+            width: 100px;
+            color: #666;
+          }
+        }
+      }
+    }
+  }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .header-section .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    
+    .search-section {
+      width: 100%;
+      
+      .p-input-icon-left {
+        width: 100%;
+      }
+    }
+    
+    .view-controls {
+      width: 100%;
+      justify-content: space-between;
+    }
+  }
+  
+  .file-details-content {
+    flex-direction: column;
+  }
+}

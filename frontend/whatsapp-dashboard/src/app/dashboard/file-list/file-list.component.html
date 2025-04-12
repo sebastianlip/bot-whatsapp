@@ -1,87 +1,243 @@
-<div style="padding: 20px; max-width: 1200px; margin: 0 auto;">
-  <h1 style="font-size: 24px; margin-bottom: 20px;">Lista de Archivos</h1>
-  
-  <div style="margin-bottom: 20px; background-color: #f5f5f5; padding: 10px; border-radius: 4px; display: flex; align-items: center;">
-    <button 
-      style="background-color: #25D366; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-right: 15px;"
-      (click)="loadFiles()"
-    >
-      Actualizar
-    </button>
+<div class="file-manager-container">
+  <div class="header-section">
+    <h1>Archivos Compartidos</h1>
     
-    <div style="display: flex; align-items: center;">
-      <input 
-        type="text" 
-        placeholder="Filtrar por teléfono" 
-        [(ngModel)]="phoneNumber"
-        style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 200px;"
-      />
-      <button 
-        style="background-color: #075E54; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-left: 10px;"
-        (click)="filterByPhoneNumber()"
-      >
-        Filtrar
-      </button>
+    <div class="toolbar">
+      <div class="search-section">
+        <span class="p-input-icon-left">
+          <i class="pi pi-search"></i>
+          <input 
+            type="text" 
+            pInputText 
+            [(ngModel)]="phoneNumber" 
+            placeholder="Buscar por número o contacto"
+            (keyup.enter)="filterByPhoneNumber()" 
+          />
+        </span>
+        <button 
+          pButton 
+          icon="pi pi-filter" 
+          label="Filtrar" 
+          class="p-button-primary"
+          (click)="filterByPhoneNumber()"
+        ></button>
+        <button 
+          pButton 
+          icon="pi pi-times" 
+          label="Limpiar" 
+          class="p-button-outlined p-button-secondary"
+          (click)="clearFilter()"
+          [disabled]="!phoneNumber"
+        ></button>
+      </div>
+      
+      <div class="view-controls">
+        <p-selectButton [options]="viewOptions" [(ngModel)]="currentView" optionLabel="label" optionValue="value"></p-selectButton>
+        <p-dropdown [options]="sortOptions" [(ngModel)]="selectedSort" placeholder="Ordenar por" (onChange)="applySorting()"></p-dropdown>
+      </div>
     </div>
   </div>
   
   <!-- Mensaje de error -->
-  <div *ngIf="error" style="background-color: #f8d7da; color: #721c24; padding: 10px; border-radius: 4px; margin-bottom: 15px;">
-    {{ error }}
+  <p-message *ngIf="error" severity="error" [text]="error" styleClass="w-full mb-3"></p-message>
+  
+  <!-- Indicador de carga -->
+  <div *ngIf="loading" class="loading-container">
+    <p-progressSpinner></p-progressSpinner>
+    <p>Cargando archivos...</p>
   </div>
   
-  <div *ngIf="loading" style="text-align: center; padding: 20px;">
-    Cargando archivos...
+  <!-- Vista de tarjetas -->
+  <div *ngIf="!loading && files.length > 0 && currentView === 'grid'" class="grid-view">
+    <div *ngFor="let file of files" class="file-card">
+      <div class="card-header">
+        <span class="file-type-badge" [ngClass]="'file-type-' + file.type">
+          {{ file.type }}
+        </span>
+        <span class="file-date">{{ formatDate(file.timestamp) }}</span>
+      </div>
+      
+      <div class="card-content">
+        <!-- Preview para imágenes -->
+        <div *ngIf="file.type === 'image'" class="image-preview">
+          <img [src]="file.downloadUrl || getFileDownloadUrl(file.s3Key)" alt="Vista previa" onerror="this.src='assets/placeholder-image.png'"/>
+        </div>
+        
+        <!-- Icono para documentos -->
+        <div *ngIf="file.type === 'document'" class="document-icon">
+          <i class="pi pi-file-pdf" *ngIf="file.fileName?.endsWith('.pdf')"></i>
+          <i class="pi pi-file-excel" *ngIf="file.fileName?.endsWith('.xlsx') || file.fileName?.endsWith('.xls')"></i>
+          <i class="pi pi-file-word" *ngIf="file.fileName?.endsWith('.docx') || file.fileName?.endsWith('.doc')"></i>
+          <i class="pi pi-file" *ngIf="!file.fileName?.endsWith('.pdf') && !file.fileName?.endsWith('.xlsx') && !file.fileName?.endsWith('.xls') && !file.fileName?.endsWith('.docx') && !file.fileName?.endsWith('.doc')"></i>
+        </div>
+        
+        <!-- Icono para audio -->
+        <div *ngIf="file.type === 'audio'" class="audio-icon">
+          <i class="pi pi-volume-up"></i>
+        </div>
+        
+        <!-- Icono para video -->
+        <div *ngIf="file.type === 'video'" class="video-icon">
+          <i class="pi pi-video"></i>
+        </div>
+        
+        <!-- Icono para otros tipos de archivo -->
+        <div *ngIf="!['image', 'document', 'audio', 'video'].includes(file.type)" class="file-icon">
+          <i class="pi pi-file"></i>
+        </div>
+        
+        <div class="file-info">
+          <h3 class="file-name">{{ file.fileName }}</h3>
+          <p class="contact-info">
+            <i class="pi pi-user"></i> {{ file.contactName }}
+          </p>
+          <p class="phone-number">
+            <i class="pi pi-phone"></i> {{ file.phoneNumber }}
+          </p>
+        </div>
+      </div>
+      
+      <div class="card-actions">
+        <button 
+          pButton 
+          icon="pi pi-download" 
+          label="Descargar" 
+          class="p-button-success"
+          (click)="downloadFile(file)"
+          [disabled]="!file.downloadUrl && !file.s3Key"
+        ></button>
+        
+        <button 
+          pButton 
+          icon="pi pi-eye" 
+          label="Ver" 
+          class="p-button-info"
+          (click)="viewFileDetails(file)"
+        ></button>
+      </div>
+    </div>
   </div>
   
-  <table *ngIf="!loading && files.length > 0" style="width: 100%; border-collapse: collapse;">
-    <thead>
-      <tr style="background-color: #f5f5f5;">
-        <th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">Fecha</th>
-        <th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">Tipo</th>
-        <th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">Nombre</th>
-        <th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">Contacto</th>
-        <th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">Teléfono</th>
-        <th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">Acciones</th>
+  <!-- Vista de tabla (listado) -->
+  <p-table 
+    *ngIf="!loading && files.length > 0 && currentView === 'list'" 
+    [value]="files" 
+    styleClass="p-datatable-striped p-datatable-gridlines"
+    [paginator]="true" 
+    [rows]="10" 
+    [showCurrentPageReport]="true" 
+    currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} archivos"
+    [rowsPerPageOptions]="[5,10,25]"
+  >
+    <ng-template pTemplate="header">
+      <tr>
+        <th pSortableColumn="timestamp">Fecha <p-sortIcon field="timestamp"></p-sortIcon></th>
+        <th pSortableColumn="type">Tipo <p-sortIcon field="type"></p-sortIcon></th>
+        <th>Archivo</th>
+        <th>Contacto</th>
+        <th>Teléfono</th>
+        <th>Acciones</th>
       </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let file of files" style="border-bottom: 1px solid #eee;">
-        <td style="padding: 10px;">{{ formatDate(file.timestamp) }}</td>
-        <td style="padding: 10px;">
-          <span 
-            [style.background-color]="file.type === 'image' ? '#3498db' : file.type === 'document' ? '#2ecc71' : '#e74c3c'"
-            style="color: white; padding: 3px 8px; border-radius: 4px; font-size: 12px;"
-          >
-            {{ file.type }}
-          </span>
+    </ng-template>
+    <ng-template pTemplate="body" let-file>
+      <tr>
+        <td>{{ formatDate(file.timestamp) }}</td>
+        <td>
+          <span class="file-type-badge" [ngClass]="'file-type-' + file.type">{{ file.type }}</span>
         </td>
-        <td style="padding: 10px;">{{ file.filename }}</td>
-        <td style="padding: 10px;">{{ file.contactName }}</td>
-        <td style="padding: 10px;">{{ file.phoneNumber }}</td>
-        <td style="padding: 10px;">
+        <td>{{ file.fileName }}</td>
+        <td>{{ file.contactName }}</td>
+        <td>{{ file.phoneNumber }}</td>
+        <td>
           <button 
-            style="background-color: #2ecc71; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-right: 5px;"
+            pButton 
+            icon="pi pi-download" 
+            class="p-button-success p-button-sm mr-2"
             (click)="downloadFile(file)"
-            [disabled]="!file.downloadUrl"
-          >
-            Descargar
-          </button>
+            [disabled]="!file.downloadUrl && !file.s3Key"
+            pTooltip="Descargar archivo"
+          ></button>
           
-          <a 
-            *ngIf="file.fileUrl"
-            style="background-color: #3498db; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block;"
-            [href]="file.fileUrl" 
-            target="_blank"
-          >
-            Ver
-          </a>
+          <button 
+            pButton 
+            icon="pi pi-eye" 
+            class="p-button-info p-button-sm"
+            (click)="viewFileDetails(file)"
+            pTooltip="Ver detalles"
+          ></button>
         </td>
       </tr>
-    </tbody>
-  </table>
+    </ng-template>
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="6" class="text-center">No se encontraron archivos.</td>
+      </tr>
+    </ng-template>
+  </p-table>
   
-  <div *ngIf="!loading && files.length === 0" style="text-align: center; padding: 40px; background-color: #f9f9f9; border-radius: 4px;">
-    No se encontraron archivos.
+  <!-- Mensaje cuando no hay archivos -->
+  <div *ngIf="!loading && files.length === 0" class="no-files-message">
+    <i class="pi pi-folder-open"></i>
+    <p>No se encontraron archivos.</p>
+    <button 
+      pButton 
+      label="Cargar archivos" 
+      icon="pi pi-sync"
+      (click)="loadFiles()"
+    ></button>
   </div>
 </div>
+
+<!-- Dialog para ver detalles del archivo -->
+<p-dialog [(visible)]="displayDialog" [style]="{width: '70vw'}" [modal]="true" header="Detalles del archivo">
+  <div *ngIf="selectedFile" class="file-details">
+    <div class="file-details-header">
+      <h2>{{ selectedFile.fileName }}</h2>
+      <p class="file-timestamp">{{ formatDate(selectedFile.timestamp) }}</p>
+    </div>
+    
+    <div class="file-details-content">
+      <div class="file-preview">
+        <!-- Vista previa para imágenes -->
+        <img *ngIf="selectedFile.type === 'image'" [src]="selectedFile.downloadUrl || getFileDownloadUrl(selectedFile.s3Key)" alt="Vista previa" class="full-preview" />
+        
+        <!-- Icono grande para otros tipos -->
+        <div *ngIf="selectedFile.type !== 'image'" class="file-type-icon">
+          <i class="pi pi-file-pdf" *ngIf="selectedFile.fileName?.endsWith('.pdf')"></i>
+          <i class="pi pi-file-excel" *ngIf="selectedFile.fileName?.endsWith('.xlsx') || selectedFile.fileName?.endsWith('.xls')"></i>
+          <i class="pi pi-file-word" *ngIf="selectedFile.fileName?.endsWith('.docx') || selectedFile.fileName?.endsWith('.doc')"></i>
+          <i class="pi pi-volume-up" *ngIf="selectedFile.type === 'audio'"></i>
+          <i class="pi pi-video" *ngIf="selectedFile.type === 'video'"></i>
+          <i class="pi pi-file" *ngIf="selectedFile.type !== 'audio' && selectedFile.type !== 'video' && !selectedFile.fileName?.endsWith('.pdf') && !selectedFile.fileName?.endsWith('.xlsx') && !selectedFile.fileName?.endsWith('.xls') && !selectedFile.fileName?.endsWith('.docx') && !selectedFile.fileName?.endsWith('.doc')"></i>
+        </div>
+      </div>
+      
+      <div class="file-metadata">
+        <h3>Información del archivo</h3>
+        <ul>
+          <li><strong>Nombre:</strong> {{ selectedFile.fileName }}</li>
+          <li><strong>Tipo:</strong> {{ selectedFile.type }}</li>
+          <li><strong>Fecha:</strong> {{ formatDate(selectedFile.timestamp) }}</li>
+          <li><strong>Contacto:</strong> {{ selectedFile.contactName }}</li>
+          <li><strong>Teléfono:</strong> {{ selectedFile.phoneNumber }}</li>
+          <li *ngIf="selectedFile.s3Key"><strong>Ruta S3:</strong> {{ selectedFile.s3Key }}</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  
+  <ng-template pTemplate="footer">
+    <button 
+      pButton 
+      icon="pi pi-download" 
+      label="Descargar" 
+      class="p-button-success"
+      (click)="downloadFile(selectedFile)"
+      [disabled]="!selectedFile?.downloadUrl && !selectedFile?.s3Key"
+    ></button>
+    <button pButton icon="pi pi-times" label="Cerrar" class="p-button-outlined" (click)="displayDialog = false"></button>
+  </ng-template>
+</p-dialog>
+
+<!-- Toast para notificaciones -->
+<p-toast></p-toast>
