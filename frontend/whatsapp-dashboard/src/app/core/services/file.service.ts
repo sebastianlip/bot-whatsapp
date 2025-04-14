@@ -3,6 +3,7 @@ import { Observable, of, catchError } from 'rxjs';
 import { delay, map, retry } from 'rxjs/operators';
 import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from './auth.service';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
@@ -16,6 +17,8 @@ export class FileService {
   
   // URL base de la API Lambda - ACTUALIZAR con tu URL de API Gateway
   private readonly API_URL = 'https://0wf1nv2l1k.execute-api.us-east-2.amazonaws.com/v1';
+
+  private apiUrl = environment.apiUrl;
 
   constructor(
     private http: HttpClient,
@@ -268,5 +271,46 @@ export class FileService {
 
     // Simular un retraso para hacer la experiencia más realista
     return of(filteredFiles).pipe(delay(800));
+  }
+
+  /**
+   * Obtener URL para descarga de archivos
+   */
+  getFileUrl(s3Key: string): string {
+    // Esta es una implementación de ejemplo, en producción debería usar URLs firmados
+    if (!s3Key) return '';
+    return `${this.apiUrl}/files/download/${encodeURIComponent(s3Key)}`;
+  }
+
+  /**
+   * Obtener URL firmado para descarga segura
+   */
+  getSignedUrl(s3Key: string): Observable<string> {
+    return this.http.get<{url: string}>(`${this.apiUrl}/files/signed-url/${encodeURIComponent(s3Key)}`).pipe(
+      map(response => response.url),
+      catchError(error => {
+        console.error('Error al obtener URL firmado:', error);
+        return of('');
+      })
+    );
+  }
+
+  /**
+   * Subir un archivo nuevo
+   */
+  uploadFile(file: File, phoneNumber: string, contactName: string): Observable<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('phoneNumber', phoneNumber);
+    formData.append('contactName', contactName);
+    
+    return this.http.post<any>(`${this.apiUrl}/files/upload`, formData);
+  }
+
+  /**
+   * Eliminar un archivo por su ID
+   */
+  deleteFile(fileId: string): Observable<any> {
+    return this.http.delete<any>(`${this.apiUrl}/files/${fileId}`);
   }
 }

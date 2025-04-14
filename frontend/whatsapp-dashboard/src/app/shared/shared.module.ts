@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { HttpClientModule } from '@angular/common/http';
 import { RouterModule } from '@angular/router';
+import { PrimeNgModule } from './primeng.module';
 
 // PrimeNG imports
 import { ButtonModule } from 'primeng/button';
@@ -53,6 +54,7 @@ const PRIME_MODULES = [
     ReactiveFormsModule,
     HttpClientModule,
     RouterModule,
+    PrimeNgModule,
     ...PRIME_MODULES
   ],
   exports: [
@@ -62,6 +64,7 @@ const PRIME_MODULES = [
     ReactiveFormsModule,
     HttpClientModule,
     RouterModule,
+    PrimeNgModule,
     ...PRIME_MODULES,
     
     // Components

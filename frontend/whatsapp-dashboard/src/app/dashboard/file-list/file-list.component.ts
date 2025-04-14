@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { FileService } from '../../core/services/file.service';
 import { AuthService } from '../../core/services/auth.service';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-file-list',
@@ -44,12 +45,13 @@ export class FileListComponent implements OnInit {
   
   // Propiedades para previsualización
   displayPreview: boolean = false;
-  previewUrl: string = '';
+  previewUrl: SafeResourceUrl | string = '';
   filteredFiles: any[] = [];
 
   constructor(
     private fileService: FileService,
-    private authService: AuthService
+    private authService: AuthService,
+    private sanitizer: DomSanitizer
   ) { }
 
   ngOnInit(): void {
@@ -63,18 +65,82 @@ export class FileListComponent implements OnInit {
     this.error = '';
     this.loading = true;
     
-    this.fileService.getAllFiles().subscribe({
-      next: (files) => {
-        console.log('Archivos obtenidos:', files);
-        this.processFiles(files);
-        this.loading = false;
-      },
-      error: (err) => {
-        console.error('Error al cargar archivos:', err);
-        this.error = 'No se pudieron cargar los archivos. Por favor, intenta de nuevo.';
-        this.loading = false;
-      }
+    // Obtener el usuario actual
+    const currentUser = this.authService.getCurrentUser();
+    if (!currentUser) {
+      this.error = 'Usuario no autenticado';
+      this.loading = false;
+      return;
+    }
+    
+    // Si es admin, cargar todos los archivos
+    if (currentUser.username === 'admin' || currentUser.attributes['role'] === 'admin') {
+      this.fileService.getAllFiles().subscribe({
+        next: (files) => {
+          console.log('Archivos obtenidos (admin):', files);
+          this.processFiles(files);
+          this.loading = false;
+        },
+        error: (err) => {
+          console.error('Error al cargar archivos:', err);
+          this.error = 'No se pudieron cargar los archivos. Por favor, intenta de nuevo.';
+          this.loading = false;
+        }
+      });
+      return;
+    }
+    
+    // Si es un usuario normal, obtener sus números asociados
+    const userPhoneNumbers = this.authService.getUserPhoneNumbers();
+    
+    if (!userPhoneNumbers || userPhoneNumbers.length === 0) {
+      console.log('Usuario sin números asociados');
+      this.files = [];
+      this.originalFiles = [];
+      this.filteredFiles = [];
+      this.loading = false;
+      return;
+    }
+    
+    // Obtener archivos solo para los números asociados del usuario
+    // Podríamos hacer múltiples peticiones o adaptar el backend para aceptar una lista de números
+    console.log('Cargando archivos para los números:', userPhoneNumbers);
+    
+    // Por ahora, hacemos una petición por cada número (en una implementación real sería mejor adaptar el backend)
+    const observables = userPhoneNumbers.map(phoneNumber => 
+      this.fileService.getFilesByPhoneNumber(phoneNumber)
+    );
+    
+    // Combinamos los resultados
+    import('rxjs').then(({ forkJoin, of }) => {
+      forkJoin(observables.length ? observables : [of([])]).subscribe({
+        next: (filesArrays) => {
+          // Combinar todos los arrays de archivos
+          const allFiles = filesArrays.flat();
+          console.log('Archivos combinados:', allFiles);
+          
+          // Eliminar duplicados (por si un archivo aparece en varios números)
+          const uniqueFiles = this.removeDuplicates(allFiles, 'id');
+          
+          this.processFiles(uniqueFiles);
+          this.loading = false;
+        },
+        error: (err) => {
+          console.error('Error al cargar archivos de múltiples números:', err);
+          this.error = 'No se pudieron cargar los archivos. Por favor, intenta de nuevo.';
+          this.loading = false;
+        }
+      });
     });
+  }
+  
+  /**
+   * Eliminar archivos duplicados por una propiedad
+   */
+  private removeDuplicates(array: any[], key: string): any[] {
+    return array.filter((item, index, self) =>
+      index === self.findIndex((t) => t[key] === item[key])
+    );
   }
 
   /**
@@ -315,25 +381,31 @@ export class FileListComponent implements OnInit {
     this.selectedFile = file;
     this.displayPreview = true;
     
+    // Añadir clase modal-open al body para gestionar correctamente el scroll
+    document.body.classList.add('modal-open');
+    
+    // Establecer una URL predeterminada mientras se carga la URL real
+    this.previewUrl = this.sanitizer.bypassSecurityTrustResourceUrl('about:blank');
+    
     // Generar URL de previsualización si es necesario
     if (file.fileUrl) {
-      this.previewUrl = file.fileUrl;
+      this.previewUrl = this.sanitizer.bypassSecurityTrustResourceUrl(file.fileUrl);
     } else if (file.downloadUrl) {
-      this.previewUrl = file.downloadUrl;
+      this.previewUrl = this.sanitizer.bypassSecurityTrustResourceUrl(file.downloadUrl);
     } else if (file.s3Key) {
       // Obtener URL firmada para S3
       this.fileService.getSignedUrl(file.s3Key).subscribe({
         next: (url) => {
-          this.previewUrl = url;
+          this.previewUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
         },
         error: (err) => {
           console.error('Error al obtener URL de previsualización:', err);
-          this.previewUrl = 'https://via.placeholder.com/400x300?text=Error+al+cargar+archivo';
+          this.previewUrl = this.sanitizer.bypassSecurityTrustResourceUrl('https://via.placeholder.com/400x300?text=Error+al+cargar+archivo');
         }
       });
     } else {
       // URL predeterminada si no hay otra disponible
-      this.previewUrl = 'https://via.placeholder.com/400x300?text=Archivo+no+disponible';
+      this.previewUrl = this.sanitizer.bypassSecurityTrustResourceUrl('https://via.placeholder.com/400x300?text=Archivo+no+disponible');
     }
   }
 
@@ -375,5 +447,26 @@ export class FileListComponent implements OnInit {
   isPreviewable(file: any): boolean {
     if (!file) return false;
     return this.isImage(file) || this.isPdf(file) || this.isAudio(file) || this.isVideo(file);
+  }
+
+  // Cerrar modal de previsualización
+  closePreview(): void {
+    // Primero marcamos como no visible el modal
+    this.displayPreview = false;
+    
+    // Limpiar la URL con un pequeño retraso para evitar efectos visuales extraños
+    setTimeout(() => {
+      this.previewUrl = this.sanitizer.bypassSecurityTrustResourceUrl('about:blank');
+      this.selectedFile = null;
+      
+      // Remover clases de modal-open del body
+      document.body.classList.remove('modal-open');
+      
+      // Remover cualquier modal-backdrop que pueda haber quedado
+      const backdrops = document.querySelectorAll('.modal-backdrop');
+      backdrops.forEach(backdrop => {
+        backdrop.parentNode?.removeChild(backdrop);
+      });
+    }, 150);
   }
 }

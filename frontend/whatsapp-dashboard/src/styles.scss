@@ -93,3 +93,58 @@ body {
 .file-name {
   font-weight: 500;
 }
+
+/* Estilos para modales */
+.modal-open {
+  overflow: hidden;
+  
+  .modal {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+}
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1050;
+  display: none;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  outline: 0;
+  
+  &.fade .modal-dialog {
+    transition: transform 0.3s ease-out;
+    transform: translate(0, -50px);
+  }
+  
+  &.show .modal-dialog {
+    transform: none;
+  }
+}
+
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1040;
+  width: 100vw;
+  height: 100vh;
+  background-color: #000;
+  
+  &.fade {
+    opacity: 0;
+    transition: opacity 0.15s linear;
+  }
+  
+  &.show {
+    opacity: 0.5;
+  }
+}
+
+/* Asegurarse de que no haya backdrop residuales */
+body:not(.modal-open) .modal-backdrop {
+  display: none !important;
+}

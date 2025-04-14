@@ -10,6 +10,7 @@ interface UserData {
   attributes: {
     [key: string]: string;
   };
+  phoneNumbers?: string[]; // Números de teléfono asociados al usuario
 }
 
 @Injectable({
@@ -27,8 +28,44 @@ export class AuthService {
       password: 'Password123!',
       attributes: {
         'email': 'admin@example.com',
-        'phone_number': '+14155551234'
-      }
+        'phone_number': '+14155551234',
+        'role': 'admin'
+      },
+      // El admin puede ver todos los números
+      phoneNumbers: [] 
+    },
+    {
+      username: 'usuario1',
+      password: 'Password123!',
+      attributes: {
+        'email': 'usuario1@example.com',
+        'phone_number': '+5491122334455',
+        'role': 'user'
+      },
+      // Usuario 1 solo puede ver archivos de estos números
+      phoneNumbers: ['+5491122334455', '+5493512347050'] 
+    },
+    {
+      username: 'usuario2',
+      password: 'Password123!',
+      attributes: {
+        'email': 'usuario2@example.com',
+        'phone_number': '+5491133445566',
+        'role': 'user'
+      },
+      // Usuario 2 solo puede ver archivos de estos números
+      phoneNumbers: ['+5491133445566', '+5493512347051'] 
+    },
+    {
+      username: 'usuario3',
+      password: 'Password123!',
+      attributes: {
+        'email': 'usuario3@example.com',
+        'phone_number': '+5491144556677',
+        'role': 'user'
+      },
+      // Usuario 3 solo puede ver archivos de este número
+      phoneNumbers: ['+5491144556677'] 
     }
   ];
 
@@ -69,7 +106,8 @@ export class AuthService {
       const userData: UserData = {
         username: user.username,
         isAuthenticated: true,
-        attributes: user.attributes
+        attributes: user.attributes,
+        phoneNumbers: user.phoneNumbers
       };
 
       // Guardar en localStorage si estamos en el navegador
@@ -79,6 +117,9 @@ export class AuthService {
       
       // Actualizar el BehaviorSubject
       this.currentUserSubject.next(userData);
+
+      // Simular la creación de asociaciones usuario-teléfono en DynamoDB
+      console.log(`Asociando usuario ${user.username} con números:`, user.phoneNumbers);
 
       // Retornar respuesta exitosa
       return of({
@@ -116,7 +157,7 @@ export class AuthService {
     this.currentUserSubject.next(null);
     
     return of({ success: true }).pipe(
-      tap(() => this.router.navigate(['/auth/login']))
+      tap(() => this.router.navigate(['/login']))
     );
   }
 
@@ -133,5 +174,32 @@ export class AuthService {
    */
   getCurrentUser(): UserData | null {
     return this.currentUserSubject.value;
+  }
+
+  /**
+   * Obtener los números de teléfono asociados al usuario actual
+   */
+  getUserPhoneNumbers(): string[] {
+    const currentUser = this.currentUserSubject.value;
+    return currentUser?.phoneNumbers || [];
+  }
+
+  /**
+   * Verificar si el usuario tiene permiso para ver archivos de un número específico
+   */
+  canAccessPhoneNumber(phoneNumber: string): boolean {
+    const currentUser = this.currentUserSubject.value;
+    
+    // Si no hay usuario, no tiene acceso
+    if (!currentUser) return false;
+    
+    // El admin tiene acceso a todo
+    if (currentUser.username === 'admin' || 
+        currentUser.attributes['role'] === 'admin') {
+      return true;
+    }
+    
+    // Verificar si el número está entre los asociados al usuario
+    return currentUser.phoneNumbers?.includes(phoneNumber) || false;
   }
 }

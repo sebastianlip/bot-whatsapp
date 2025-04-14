@@ -1,0 +1,5 @@
+{
+    "username": {"S": "usuario2"},
+    "phoneNumber": {"S": "+5493512347051"},
+    "contactName": {"S": "Contacto 2"}
+} 
