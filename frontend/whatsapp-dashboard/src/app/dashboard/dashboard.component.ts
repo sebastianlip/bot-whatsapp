@@ -8,7 +8,6 @@ import { FileListComponent } from './file-list/file-list.component';
   imports: [CommonModule, FileListComponent],
   template: `
     <div class="container mx-auto p-4">
-      <h1 class="text-2xl font-bold text-whatsapp-dark-green mb-4">Panel de control</h1>
       <app-file-list></app-file-list>
     </div>
   `,

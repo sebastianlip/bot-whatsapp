@@ -25,8 +25,8 @@ export class FileListComponent implements OnInit {
   originalFiles: any[] = []; // Para guardar la copia original sin filtrar
   
   // Propiedades para ordenamiento
-  sortField: string = 'name';
-  sortOrder: number = 1;
+  sortField: string = 'timestamp';
+  sortOrder: number = -1; // -1 para ordenar descendente (más nuevo primero)
   
   // Opciones de ordenamiento
   selectedSort: string = 'date-desc';
@@ -47,6 +47,12 @@ export class FileListComponent implements OnInit {
   displayPreview: boolean = false;
   previewUrl: SafeResourceUrl | string = '';
   filteredFiles: any[] = [];
+  
+  // Paginación
+  pageSizeOptions: number[] = [10, 20, 50];
+  pageSize: number = 10;
+  currentPage: number = 1;
+  pagedFiles: any[] = [];
 
   constructor(
     private fileService: FileService,
@@ -166,6 +172,80 @@ export class FileListComponent implements OnInit {
     
     // Aplicar ordenamiento seleccionado
     this.applySorting();
+    // Actualizar paginación
+    this.updatePagedFiles();
+  }
+
+  /**
+   * Actualizar archivos paginados
+   */
+  updatePagedFiles(): void {
+    const startIndex = (this.currentPage - 1) * this.pageSize;
+    const endIndex = startIndex + this.pageSize;
+    this.pagedFiles = this.filteredFiles.slice(startIndex, endIndex);
+  }
+  
+  /**
+   * Cambiar de página
+   */
+  changePage(page: number): void {
+    this.currentPage = page;
+    this.updatePagedFiles();
+  }
+  
+  /**
+   * Cambiar tamaño de página
+   */
+  changePageSize(size: number): void {
+    this.pageSize = size;
+    // Al cambiar el tamaño, volvemos a la primera página
+    this.currentPage = 1;
+    this.updatePagedFiles();
+  }
+  
+  /**
+   * Obtener número total de páginas
+   */
+  get totalPages(): number {
+    return Math.ceil(this.filteredFiles.length / this.pageSize);
+  }
+  
+  /**
+   * Obtener array de páginas para mostrar
+   */
+  get pageNumbers(): number[] {
+    // Mostrar máximo 5 páginas
+    const totalPages = this.totalPages;
+    const currentPage = this.currentPage;
+    
+    if (totalPages <= 5) {
+      return Array.from({length: totalPages}, (_, i) => i + 1);
+    }
+    
+    // Si estamos en las primeras 3 páginas
+    if (currentPage <= 3) {
+      return [1, 2, 3, 4, 5];
+    }
+    
+    // Si estamos en las últimas 3 páginas
+    if (currentPage >= totalPages - 2) {
+      return [
+        totalPages - 4,
+        totalPages - 3,
+        totalPages - 2,
+        totalPages - 1,
+        totalPages
+      ];
+    }
+    
+    // En medio
+    return [
+      currentPage - 2,
+      currentPage - 1,
+      currentPage,
+      currentPage + 1,
+      currentPage + 2
+    ];
   }
 
   /**
@@ -213,16 +293,24 @@ export class FileListComponent implements OnInit {
   filterFiles(): void {
     if (!this.searchTerm.trim()) {
       this.filteredFiles = [...this.originalFiles];
-      return;
+    } else {
+      // Limpiar espacios y normalizar la búsqueda
+      const searchTerm = this.searchTerm.trim().toLowerCase();
+      
+      // Filtrar localmente
+      this.filteredFiles = this.originalFiles.filter(file => 
+        file.fileName.toLowerCase().includes(searchTerm)
+      );
     }
     
-    // Limpiar espacios y normalizar la búsqueda
-    const searchTerm = this.searchTerm.trim().toLowerCase();
+    // Aplicar ordenamiento
+    this.applySorting();
     
-    // Filtrar localmente
-    this.filteredFiles = this.originalFiles.filter(file => 
-      file.fileName.toLowerCase().includes(searchTerm)
-    );
+    // Volver a primera página
+    this.currentPage = 1;
+    
+    // Actualizar vista paginada
+    this.updatePagedFiles();
   }
 
   /**
@@ -231,6 +319,15 @@ export class FileListComponent implements OnInit {
   clearFilter(): void {
     this.searchTerm = '';
     this.filteredFiles = [...this.originalFiles];
+    
+    // Aplicar ordenamiento
+    this.applySorting();
+    
+    // Volver a primera página
+    this.currentPage = 1;
+    
+    // Actualizar vista paginada
+    this.updatePagedFiles();
   }
 
   /**
@@ -245,6 +342,7 @@ export class FileListComponent implements OnInit {
     }
     
     this.applySorting();
+    this.updatePagedFiles();
   }
 
   /**
