@@ -1,14 +1,34 @@
 import { Injectable } from '@angular/core';
-import { Observable, of, catchError } from 'rxjs';
-import { delay, map, retry } from 'rxjs/operators';
+import { Observable, of, catchError, BehaviorSubject } from 'rxjs';
+import { delay, map, retry, tap, shareReplay } from 'rxjs/operators';
 import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from './auth.service';
 import { environment } from '../../../environments/environment';
+
+/**
+ * Interfaz para los metadatos de archivos
+ */
+export interface FileMetadata {
+  id?: string;
+  username?: string;
+  phoneNumber?: string;
+  timestamp?: string;
+  s3Key?: string;
+  fileName?: string;
+  contactName?: string;
+  fileType?: string;
+  downloadUrl?: string;
+  [key: string]: any; // Para propiedades adicionales
+}
 
 @Injectable({
   providedIn: 'root'
 })
 export class FileService {
+  // Cache de los archivos
+  private filesCache = new BehaviorSubject<any[]>([]);
+  private isCacheInitialized = false;
+  
   // Flag para habilitar/deshabilitar el modo de prueba (sin AWS)
   private readonly TEST_MODE = false; // Modo de AWS activado
   
@@ -31,15 +51,26 @@ export class FileService {
   getAllFiles(): Observable<any[]> {
     console.log('Solicitando archivos...');
     
+    // Si hay archivos en caché y la caché está inicializada, devolverlos
+    if (this.isCacheInitialized && this.filesCache.value.length > 0) {
+      console.log('Devolviendo archivos desde caché:', this.filesCache.value.length);
+      return of(this.filesCache.value);
+    }
+    
     // Si estamos en modo de prueba, devolver datos simulados
     if (this.TEST_MODE) {
       console.log('Modo de prueba activado - devolviendo archivos simulados');
-      return this.getLocalStorageFiles();
+      return this.getLocalStorageFiles().pipe(
+        tap(files => {
+          this.filesCache.next(files);
+          this.isCacheInitialized = true;
+        })
+      );
     }
     
     const currentUser = this.authService.getCurrentUser();
     if (!currentUser) {
-      console.error('No hay usuario autenticado para obtener archivos');
+      console.log('No hay usuario autenticado todavía, devolviendo array vacío');
       return of([]);
     }
 
@@ -54,10 +85,15 @@ export class FileService {
     // Llamar a la API Lambda para obtener archivos
     return this.http.post<any>(`${this.API_URL}/files`, { username }, { headers })
       .pipe(
-        retry(1), // Reintentar 1 vez en caso de error
+        retry(2), // Reintentar 2 veces en caso de error
         map(response => {
           if (response && response.items) {
             console.log('Archivos recibidos de AWS:', response.items);
+            // Actualizar la caché solo si hay elementos válidos
+            if (response.items.length > 0) {
+              this.filesCache.next(response.items);
+              this.isCacheInitialized = true;
+            }
             return response.items;
           }
           console.warn('No se recibieron elementos de la API');
@@ -69,70 +105,73 @@ export class FileService {
           // Si es un error de CORS u otro error de red y el auto-fallback está habilitado
           if (this.CORS_AUTO_FALLBACK && (error.status === 0 || error.status === 403)) {
             console.warn('Detectado error de CORS o red - cambiando a modo simulado');
-            return this.getLocalStorageFiles();
+            return this.getLocalStorageFiles().pipe(
+              tap(files => {
+                this.filesCache.next(files);
+                this.isCacheInitialized = true;
+              })
+            );
           }
           
           // Devolver datos simulados en caso de error
-          return this.TEST_MODE ? this.getLocalStorageFiles() : this.getFallbackFiles();
-        })
+          const fallbackFiles = this.TEST_MODE 
+            ? this.getLocalStorageFiles() 
+            : this.getFallbackFiles();
+            
+          return fallbackFiles.pipe(
+            tap(files => {
+              // Solo actualizar la caché si no hay datos previos
+              if (!this.isCacheInitialized || this.filesCache.value.length === 0) {
+                this.filesCache.next(files);
+                this.isCacheInitialized = true;
+              }
+            })
+          );
+        }),
+        shareReplay(1) // Compartir el resultado entre múltiples subscriptores
       );
   }
 
   /**
-   * Obtener archivos filtrados por número de teléfono
+   * Limpiar cache de archivos (útil para forzar recarga)
    */
-  getFilesByPhoneNumber(phoneNumber: string): Observable<any[]> {
-    console.log(`Filtrando archivos por teléfono: ${phoneNumber}`);
+  clearFilesCache(): void {
+    this.filesCache.next([]);
+    this.isCacheInitialized = false;
+    console.log('Cache de archivos limpiado');
+  }
+
+  /**
+   * Verificar si hay archivos en caché
+   */
+  hasCachedFiles(): boolean {
+    return this.isCacheInitialized && this.filesCache.value.length > 0;
+  }
+
+  /**
+   * Obtiene los archivos asociados a un número o números de teléfono específicos
+   * @param phoneNumber Número(s) de teléfono para filtrar los archivos
+   * @returns Observable de los archivos filtrados para el número o números de teléfono especificados
+   */
+  getFilesByPhoneNumber(phoneNumber: string | string[]): Observable<FileMetadata[]> {
+    console.log('Buscando archivos para número(s):', phoneNumber);
     
-    // Si estamos en modo de prueba, devolver datos simulados
-    if (this.TEST_MODE) {
-      console.log('Modo de prueba activado - devolviendo archivos simulados filtrados');
-      // Simular filtrado básico
-      return this.getLocalStorageFiles(phoneNumber);
-    }
-    
-    const currentUser = this.authService.getCurrentUser();
-    if (!currentUser) {
-      console.error('No hay usuario autenticado para obtener archivos');
-      return of([]);
-    }
-
-    const username = currentUser.username;
-    console.log(`Obteniendo archivos para el usuario: ${username}, teléfono: ${phoneNumber}`);
-
-    // Crear headers para la petición
-    const headers = new HttpHeaders({
-      'Content-Type': 'application/json'
-    });
-
-    // Llamar a la API Lambda para obtener archivos filtrados
-    return this.http.post<any>(`${this.API_URL}/files/filter`, { 
-      username, 
-      phoneNumber 
-    }, { headers })
-      .pipe(
-        retry(1), // Reintentar 1 vez en caso de error
-        map(response => {
-          if (response && response.items) {
-            console.log('Archivos filtrados recibidos de AWS:', response.items);
-            return response.items;
-          }
-          console.warn('No se recibieron elementos filtrados de la API');
-          return [];
-        }),
-        catchError(error => {
-          console.error('Error al filtrar archivos por teléfono:', error);
-          
-          // Si es un error de CORS u otro error de red y el auto-fallback está habilitado
-          if (this.CORS_AUTO_FALLBACK && (error.status === 0 || error.status === 403)) {
-            console.warn('Detectado error de CORS o red - cambiando a modo simulado');
-            return this.getLocalStorageFiles(phoneNumber);
-          }
-          
-          // Devolver datos simulados filtrados en caso de error
-          return this.TEST_MODE ? this.getLocalStorageFiles(phoneNumber) : this.getFallbackFiles(phoneNumber);
-        })
-      );
+    return this.getAllFiles().pipe(
+      map(files => {
+        if (Array.isArray(phoneNumber)) {
+          // Si es un array, filtrar archivos que coincidan con cualquiera de los números proporcionados
+          console.log('Filtrando archivos para múltiples números:', phoneNumber);
+          return files.filter(file => 
+            phoneNumber.some(number => file.phoneNumber && file.phoneNumber.includes(number))
+          );
+        } else {
+          // Si es un solo número de teléfono (string)
+          console.log('Filtrando archivos para número único:', phoneNumber);
+          return files.filter(file => file.phoneNumber && file.phoneNumber.includes(phoneNumber));
+        }
+      }),
+      tap(filteredFiles => console.log(`Se encontraron ${filteredFiles.length} archivos para el/los número(s) proporcionado(s)`))
+    );
   }
 
   /**

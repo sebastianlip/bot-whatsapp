@@ -52,7 +52,7 @@ aws lambda add-permission --function-name getUserFiles --statement-id apigateway
 
 ## 3. Configuración DynamoDB
 
-### Tabla
+### Tabla para Mensajes de WhatsApp
 - **Nombre**: whatsapp-messages
 - **Clave de partición**: id (String)
 
@@ -72,6 +72,24 @@ aws lambda add-permission --function-name getUserFiles --statement-id apigateway
 ```bash
 aws dynamodb put-item --table-name whatsapp-messages --item '{\"id\": {\"S\": \"test-1\"}, \"username\": {\"S\": \"admin\"}, \"phoneNumber\": {\"S\": \"+123456789\"}, \"timestamp\": {\"S\": \"2025-04-12T12:00:00Z\"}, \"s3Key\": {\"S\": \"image/1744412738989-temp-image.png\"}, \"contactName\": {\"S\": \"Usuario Prueba\"}}'
 ```
+
+### Tabla para Asociaciones Usuario-Teléfono
+- **Nombre**: user-phone-associations
+- **Clave de partición**: username (String)
+- **Clave de ordenación**: phoneNumber (String)
+- **ARN**: arn:aws:dynamodb:us-east-2:338391041987:table/user-phone-associations
+- **Modo de capacidad**: Bajo demanda
+
+### Datos existentes
+La tabla contiene 5 registros distribuidos entre 3 usuarios diferentes:
+
+| username | phoneNumber | contactName |
+|----------|-------------|-------------|
+| usuario1 | +5491122334455 | Contacto Personal |
+| usuario1 | +5493512347050 | Contacto Trabajo |
+| usuario2 | +5491133445566 | Contacto 1 |
+| usuario2 | +5493512347051 | Contacto 2 |
+| usuario3 | +5491144556677 | Contacto Único |
 
 ## 4. Configuración S3
 
@@ -95,7 +113,44 @@ El servicio de archivos (`file.service.ts`) se configuró con:
 - `getFilesByPhoneNumber(phoneNumber)`: Filtra archivos por número
 - `getDownloadUrl(key)`: Genera URLs de descarga
 
-## 6. Problemas Comunes y Soluciones
+## 6. Amazon Cognito para Autenticación
+
+### Configuración del User Pool
+- **Nombre del User Pool**: WhatsAppUsers
+- **ID del User Pool**: us-east-2_QX51TFH9O
+- **ARN**: arn:aws:cognito-idp:us-east-2:338391041987:userpool/us-east-2_QX51TFH9O
+- **Dominio de Cognito**: https://whatsapp-dashboard-testeando.auth.us-east-2.amazoncognito.com
+
+### Configuración de la App Cliente
+- **ID de Cliente**: (pendiente de verificar, este dato se encuentra en la consola de AWS)
+- **Callback URL**: http://localhost:4208/dashboard
+- **Sign-out URL**: http://localhost:4208/login
+
+### Usuarios Configurados
+Ya existe un usuario en el User Pool con las siguientes características:
+- **ID de usuario (sub)**: 613bb5b0-50d1-70ed-5a51-9faba3fae5f3
+- **Estado**: Habilitado, requiere cambio de contraseña forzado
+- **MFA**: Desactivado
+
+### Integración con la Aplicación
+Para integrar Cognito con la aplicación Angular, se configuraron los siguientes parámetros en el archivo `environment.ts`:
+
+```typescript
+export const environment = {
+  production: false,
+  apiUrl: 'https://0wf1nv2l1k.execute-api.us-east-2.amazonaws.com/v1',
+  cognito: {
+    userPoolId: 'us-east-2_QX51TFH9O',
+    clientId: '1gi3ffh237kmtejjt9cn132fk4',
+    region: 'us-east-2',
+    domain: 'whatsapp-dashboard-testeando.auth.us-east-2.amazoncognito.com',
+    redirectUri: 'http://localhost:4208/dashboard',
+    logoutUri: 'http://localhost:4208/login'
+  }
+};
+```
+
+## 7. Problemas Comunes y Soluciones
 
 ### Error: "Property 'subscribe' does not exist on type 'string'"
 Este error ocurre cuando se intenta usar `getDownloadUrl()` como un Observable cuando en realidad devuelve una cadena (string).
@@ -173,6 +228,45 @@ Errores relacionados con Observable anidado (`Observable<Observable<any>>`) o va
    );
    ```
 
+### Error: "Amplify has not been configured correctly"
+Este error aparece cuando la biblioteca de AWS Amplify no está correctamente configurada o inicializada.
+
+**Solución:**
+1. Verificar que la inicialización de Amplify se realiza antes de que cualquier servicio intente utilizarla:
+   ```typescript
+   // En app.module.ts o main.ts
+   import { Amplify } from 'aws-amplify';
+   
+   Amplify.configure({
+     Auth: {
+       region: environment.cognito.region,
+       userPoolId: environment.cognito.userPoolId,
+       userPoolWebClientId: environment.cognito.clientId,
+       oauth: {
+         domain: environment.cognito.domain,
+         scope: ['email', 'profile', 'openid'],
+         redirectSignIn: environment.cognito.redirectUri,
+         redirectSignOut: environment.cognito.logoutUri,
+         responseType: 'code'
+       }
+     }
+   });
+   ```
+2. Asegurarse de que las versiones de los paquetes de Amplify sean compatibles entre sí.
+3. Verificar que la configuración utiliza exactamente los nombres de propiedades esperados por Amplify.
+
+### Error: "localStorage is not defined"
+Este error ocurre durante el renderizado en el servidor (SSR) porque localStorage no está disponible en entornos de servidor.
+
+**Solución:**
+1. Condicionar el uso de localStorage para que solo se ejecute en el navegador:
+   ```typescript
+   if (typeof window !== 'undefined') {
+     localStorage.setItem('key', 'value');
+   }
+   ```
+2. O utilizar un servicio especializado para abstraer el almacenamiento que maneje tanto el servidor como el cliente.
+
 ## 9. Modo de Prueba para Desarrollo
 
 Para facilitar el desarrollo y depuración, el proyecto incluye un modo de prueba que funciona sin necesidad de AWS.
@@ -226,7 +320,7 @@ Para realizar una prueba completa del sistema:
    - Probar la búsqueda por número de teléfono
    - Confirmar que solo muestra archivos del número especificado
 
-## 7. Comandos Útiles para Depuración
+## 8. Comandos Útiles para Depuración
 
 ### API Gateway
 ```bash
@@ -259,6 +353,9 @@ aws dynamodb list-tables
 
 # Escanear tabla (primeros 10 elementos)
 aws dynamodb scan --table-name whatsapp-messages --limit 10
+
+# Consultar asociaciones de un usuario específico
+aws dynamodb query --table-name user-phone-associations --key-condition-expression "username = :username" --expression-attribute-values '{":username": {"S": "usuario1"}}'
 ```
 
 ### S3
@@ -270,21 +367,42 @@ aws s3 ls s3://whatsapp-bot-files
 aws s3 ls s3://whatsapp-bot-files/image/
 ```
 
-## 8. Próximos Pasos Sugeridos
+### Cognito
+```bash
+# Listar grupos de usuarios
+aws cognito-idp list-user-pools --max-results 10
 
-1. **Mejorar el Manejo de Errores**:
+# Listar usuarios de un User Pool
+aws cognito-idp list-users --user-pool-id us-east-2_QX51TFH9O
+
+# Verificar estado de un usuario específico
+aws cognito-idp admin-get-user --user-pool-id us-east-2_QX51TFH9O --username [nombre_de_usuario]
+```
+
+## 11. Próximos Pasos Sugeridos
+
+1. **Completar la Integración de Cognito**:
+   - Implementar manejo del estado "Forzar cambio de contraseña"
+   - Configurar el componente de inicio de sesión para usar Cognito
+   - Implementar el guardián de rutas para proteger las páginas privadas
+
+2. **Mejorar la Gestión de Asociaciones Usuario-Teléfono**:
+   - Crear una interfaz para que los administradores puedan añadir/eliminar asociaciones
+   - Implementar una función Lambda para administrar estos cambios
+
+3. **Mejorar el Manejo de Errores**:
    - Implementar un sistema de reintentos en el frontend
    - Mostrar mensajes de error más detallados
 
-2. **Mejorar la Seguridad**:
-   - Configurar autenticación con Amazon Cognito
+4. **Mejorar la Seguridad**:
+   - Implementar roles y permisos basados en grupos de Cognito
    - Restringir acceso a archivos por usuario
 
-3. **Optimización**:
+5. **Optimización**:
    - Implementar caché para respuestas frecuentes
    - Optimizar consultas a DynamoDB con índices
 
-4. **Funcionalidades Adicionales**:
+6. **Funcionalidades Adicionales**:
    - Subida de archivos directamente desde el dashboard
    - Previsualización de archivos (imágenes, documentos PDF, etc.)
    - Búsqueda avanzada por fechas y tipos de archivo 

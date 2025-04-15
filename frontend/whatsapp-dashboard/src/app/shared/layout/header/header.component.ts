@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { RouterModule, Router } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
@@ -13,7 +13,10 @@ import { AuthService } from '../../../core/services/auth.service';
 export class HeaderComponent implements OnInit {
   username: string = '';
   
-  constructor(private authService: AuthService) { }
+  constructor(
+    private authService: AuthService,
+    private router: Router
+  ) { }
 
   ngOnInit(): void {
     // Obtener usuario actual si existe
@@ -28,6 +31,17 @@ export class HeaderComponent implements OnInit {
   }
 
   logout(): void {
-    this.authService.logout().subscribe();
+    console.log('Iniciando cierre de sesión desde header...');
+    this.authService.logout().subscribe({
+      next: () => {
+        console.log('Sesión cerrada correctamente');
+        this.router.navigate(['/login']);
+      },
+      error: (err) => {
+        console.error('Error al cerrar sesión:', err);
+        // Intentar navegar a login incluso si hay error
+        this.router.navigate(['/login']);
+      }
+    });
   }
 }

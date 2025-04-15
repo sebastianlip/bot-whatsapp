@@ -1,7 +1,9 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { RouterModule, Router } from '@angular/router';
+import { Component, OnInit, Inject, PLATFORM_ID } from '@angular/core';
+import { Router } from '@angular/router';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { RouterModule } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
+import { CognitoService } from '../../core/services/cognito.service';
 
 @Component({
   selector: 'app-header',
@@ -12,55 +14,104 @@ import { AuthService } from '../../core/services/auth.service';
 })
 export class HeaderComponent implements OnInit {
   username: string = '';
+  authProvider: string = 'Local';
+  authProviderIcon: string = 'fa fa-user';
+  private isBrowser: boolean;
 
-  constructor(private authService: AuthService, private router: Router) { }
-
+  constructor(
+    private router: Router,
+    public authService: AuthService,
+    private cognitoService: CognitoService,
+    @Inject(PLATFORM_ID) private platformId: Object
+  ) {
+    this.isBrowser = isPlatformBrowser(platformId);
+  }
+  
   ngOnInit(): void {
-    // Obtener el usuario actual
-    this.updateUsername();
-    
-    // Suscribirse a cambios en el usuario
-    this.authService.currentUser$.subscribe(user => {
-      if (user) {
-        this.username = user.username;
-      } else {
-        this.username = '';
+    this.checkAuthStatus();
+  }
+  
+  private checkAuthStatus() {
+    // Verificar autenticación y determinar el proveedor
+    if (this.authService.isAuthenticated()) {
+      const currentUser = this.authService.getCurrentUser();
+      if (currentUser) {
+        this.username = currentUser.username || 'Usuario';
+        
+        // Determinar el proveedor de autenticación
+        // Verificamos si está en Cognito basado en atributos
+        if (currentUser.attributes && currentUser.attributes['cognito:username']) {
+          this.authProvider = 'Cognito';
+          this.authProviderIcon = 'fa fa-aws';
+        } else {
+          this.authProvider = 'Local';
+          this.authProviderIcon = 'fa fa-user';
+        }
       }
-    });
-  }
-
-  /**
-   * Actualiza el nombre de usuario desde el servicio de autenticación
-   */
-  updateUsername(): void {
-    const currentUser = this.authService.getCurrentUser();
-    if (currentUser) {
-      this.username = currentUser.username;
     }
-  }
-
-  /**
-   * Verifica si el usuario está autenticado
-   */
-  isLoggedIn(): boolean {
-    return this.authService.isAuthenticated();
-  }
-
-  /**
-   * Cierra la sesión del usuario
-   */
-  logout(): void {
-    // Confirmar cierre de sesión
-    if (confirm('¿Está seguro que desea cerrar sesión?')) {
-      this.authService.logout().subscribe({
-        next: () => {
-          console.log('Sesión cerrada exitosamente');
-          this.router.navigate(['/login']);
+    
+    // Verificar autenticación de Cognito como respaldo (solo en navegador)
+    if (this.isBrowser) {
+      this.cognitoService.getCurrentUser().subscribe({
+        next: (user) => {
+          if (user && user.username) {
+            this.authProvider = 'Cognito';
+            this.authProviderIcon = 'fa fa-aws';
+            // Actualizar el nombre de usuario si está vacío
+            if (!this.username) {
+              this.username = user.username;
+            }
+          }
         },
-        error: (err) => {
-          console.error('Error al cerrar sesión:', err);
+        error: (error) => {
+          console.error('Error al obtener usuario de Cognito:', error);
         }
       });
     }
+  }
+  
+  logout(): void {
+    console.log('Iniciando cierre de sesión desde header...');
+    
+    if (this.authProvider === 'Cognito' && this.isBrowser) {
+      console.log('Cerrando sesión en Cognito...');
+      this.cognitoService.signOut().subscribe({
+        next: () => {
+          console.log('Sesión de Cognito cerrada correctamente');
+          this.router.navigate(['/login']);
+        },
+        error: (error) => {
+          console.error('Error al cerrar sesión en Cognito:', error);
+          // Intentar el cierre de sesión estándar como fallback
+          this.fallbackLogout();
+        }
+      });
+    } else {
+      this.fallbackLogout();
+    }
+  }
+  
+  private fallbackLogout(): void {
+    console.log('Utilizando cierre de sesión estándar...');
+    this.authService.logout().subscribe({
+      next: () => {
+        console.log('Sesión cerrada correctamente');
+        this.username = '';
+        this.authProvider = 'Local';
+        this.authProviderIcon = 'fa fa-user';
+        this.router.navigate(['/login']);
+      },
+      error: (err) => {
+        console.error('Error en cierre de sesión estándar:', err);
+        
+        // Limpiar datos de sesión de todas formas
+        this.username = '';
+        this.authProvider = 'Local';
+        this.authProviderIcon = 'fa fa-user';
+        
+        // Navegar a login
+        this.router.navigate(['/login']);
+      }
+    });
   }
 }

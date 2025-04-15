@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba de CORS con API Gateway</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        pre { background-color: #f5f5f5; padding: 10px; border-radius: 5px; }
+        button { padding: 8px 16px; margin: 5px; }
+        #results { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h2>Prueba de CORS con API Gateway</h2>
+    
+    <div>
+        <h3>1. Probar endpoint GET /files</h3>
+        <button onclick="testFilesEndpoint()">Probar GET /files</button>
+    </div>
+    
+    <div>
+        <h3>2. Probar endpoint POST /upload</h3>
+        <button onclick="testUploadEndpoint()">Probar POST /upload</button>
+    </div>
+    
+    <div id="results">
+        <h3>Resultados:</h3>
+        <pre id="output">Los resultados aparecerán aquí...</pre>
+    </div>
+    
+    <script>
+        // URL del endpoint de API Gateway
+        const API_URL = 'https://0wf1nv2l1k.execute-api.us-east-2.amazonaws.com/v1';
+        
+        // Datos de prueba
+        const testData = {
+            username: 'admin',
+            phoneNumber: '+123456789',
+            fileContent: 'SGVsbG8gV29ybGQ=', // "Hello World" en Base64
+            fileName: 'test.txt',
+            fileType: 'document',
+            contactName: 'Test User'
+        };
+        
+        // Elemento para mostrar resultados
+        const output = document.getElementById('output');
+        
+        // Función para mostrar resultados
+        function showResult(title, data) {
+            output.innerHTML = `<strong>${title}</strong>\n${JSON.stringify(data, null, 2)}`;
+        }
+        
+        // Función para probar el endpoint de files
+        async function testFilesEndpoint() {
+            output.innerHTML = 'Probando endpoint /files...';
+            
+            try {
+                const response = await fetch(`${API_URL}/files`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username: 'admin' })
+                });
+                
+                const data = await response.json();
+                showResult('Respuesta del endpoint /files:', {
+                    status: response.status,
+                    data
+                });
+            } catch (error) {
+                showResult('Error al probar /files:', {
+                    name: error.name,
+                    message: error.message
+                });
+            }
+        }
+        
+        // Función para probar el endpoint de upload
+        async function testUploadEndpoint() {
+            output.innerHTML = 'Probando endpoint /upload...';
+            
+            try {
+                const response = await fetch(`${API_URL}/upload`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(testData)
+                });
+                
+                const data = await response.json();
+                showResult('Respuesta del endpoint /upload:', {
+                    status: response.status,
+                    data
+                });
+            } catch (error) {
+                showResult('Error al probar /upload:', {
+                    name: error.name,
+                    message: error.message
+                });
+            }
+        }
+    </script>
+</body>
+</html> 

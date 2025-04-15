@@ -7,12 +7,16 @@ export const routes: Routes = [
     loadComponent: () => import('./auth/login/login.component').then(m => m.LoginComponent)
   },
   {
+    path: 'auth/callback',
+    loadComponent: () => import('./auth/callback/callback.component').then(m => m.CallbackComponent)
+  },
+  {
     path: 'dashboard',
     loadComponent: () => import('./dashboard/dashboard.component').then(m => m.DashboardComponent),
     canActivate: [AuthGuard]
   },
   {
-    path: 'whatsapp-simulator',
+    path: 'simulator',
     loadComponent: () => import('./whatsapp-simulator/whatsapp-simulator.component').then(m => m.WhatsappSimulatorComponent)
   },
   {

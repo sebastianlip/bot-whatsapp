@@ -1,9 +1,12 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { FileService } from '../../core/services/file.service';
 import { AuthService } from '../../core/services/auth.service';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { Subscription, timer } from 'rxjs';
+import { retry, take } from 'rxjs/operators';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-file-list',
@@ -15,7 +18,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
   templateUrl: './file-list.component.html',
   styleUrls: ['./file-list.component.scss']
 })
-export class FileListComponent implements OnInit {
+export class FileListComponent implements OnInit, OnDestroy {
   // Datos y estado
   files: any[] = [];
   loading = false;
@@ -23,6 +26,11 @@ export class FileListComponent implements OnInit {
   error: string = '';
   errorMessage: string = '';
   originalFiles: any[] = []; // Para guardar la copia original sin filtrar
+  
+  // Control de carga de datos
+  private loadAttempts = 0;
+  private maxLoadAttempts = 3;
+  private loadSubscription?: Subscription;
   
   // Propiedades para ordenamiento
   sortField: string = 'timestamp';
@@ -54,6 +62,8 @@ export class FileListComponent implements OnInit {
   currentPage: number = 1;
   pagedFiles: any[] = [];
 
+  private retryTimer: NodeJS.Timeout | null = null;
+
   constructor(
     private fileService: FileService,
     private authService: AuthService,
@@ -61,92 +71,120 @@ export class FileListComponent implements OnInit {
   ) { }
 
   ngOnInit(): void {
+    this.loadFilesWithRetry();
+  }
+
+  ngOnDestroy(): void {
+    if (this.loadSubscription) {
+      this.loadSubscription.unsubscribe();
+    }
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer);
+    }
+  }
+
+  /**
+   * Cargar archivos con lógica de reintento
+   */
+  loadFilesWithRetry(): void {
+    console.log('FileListComponent: Iniciando carga de archivos con reintentos');
+    this.loadAttempts = 0;
+    this.loading = true;
+    this.error = '';
+    
+    // Limpiamos cualquier temporizador anterior
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = null;
+    }
+    
+    // Verificar primero si el servicio de auth está inicializado
+    const authInitialized = this.authService.isInitializedService();
+    if (!authInitialized) {
+      console.log('FileListComponent: Servicio de autenticación no inicializado, esperando...');
+      this.retryTimer = setTimeout(() => this.loadFilesWithRetry(), 1000);
+      return;
+    }
+    
+    this.attemptLoadFiles();
+  }
+  
+  /**
+   * Intentar cargar archivos con lógica de reintentos
+   */
+  attemptLoadFiles(): void {
+    this.loadAttempts++;
+    console.log(`FileListComponent: Intento #${this.loadAttempts} de cargar archivos`);
+    
+    if (!this.authService.isInitializedService()) {
+      console.log('FileListComponent: Auth service no inicializado. Reintentando en unos segundos...');
+      const delay = Math.min(2000 * this.loadAttempts, 10000);
+      this.retryTimer = setTimeout(() => this.attemptLoadFiles(), delay);
+      return;
+    }
+    
+    if (!this.authService.isAuthenticated()) {
+      console.log('FileListComponent: Usuario no autenticado. Reintentando en unos segundos...');
+      const delay = Math.min(2000 * this.loadAttempts, 10000);
+      this.retryTimer = setTimeout(() => this.attemptLoadFiles(), delay);
+      return;
+    }
+    
+    console.log('FileListComponent: Usuario autenticado, procediendo a cargar archivos');
+    // Obtener todos los archivos
     this.loadFiles();
   }
 
   /**
-   * Cargar todos los archivos
+   * Cargar archivos del usuario
    */
   loadFiles(): void {
-    this.error = '';
+    console.log('FileListComponent: Cargando archivos desde FileService');
     this.loading = true;
+    this.error = '';
     
     // Obtener el usuario actual
     const currentUser = this.authService.getCurrentUser();
+    
     if (!currentUser) {
-      this.error = 'Usuario no autenticado';
+      console.error('FileListComponent: No hay usuario autenticado para cargar archivos');
       this.loading = false;
+      this.error = 'No se pudo verificar el usuario. Por favor, inicie sesión.';
       return;
     }
     
-    // Si es admin, cargar todos los archivos
-    if (currentUser.username === 'admin' || currentUser.attributes['role'] === 'admin') {
+    // Obtener números de teléfono asociados al usuario actual
+    const phoneNumbers = this.authService.getUserPhoneNumbers();
+    console.log('FileListComponent: Números de teléfono encontrados:', phoneNumbers);
+    
+    if (!phoneNumbers || phoneNumbers.length === 0) {
+      // Si no hay números de teléfono, obtener todos los archivos
+      console.log('FileListComponent: No se encontraron números de teléfono. Obteniendo todos los archivos...');
       this.fileService.getAllFiles().subscribe({
-        next: (files) => {
-          console.log('Archivos obtenidos (admin):', files);
-          this.processFiles(files);
-          this.loading = false;
-        },
-        error: (err) => {
-          console.error('Error al cargar archivos:', err);
-          this.error = 'No se pudieron cargar los archivos. Por favor, intenta de nuevo.';
-          this.loading = false;
-        }
+        next: (data: any[]) => this.handleFilesResponse(data),
+        error: (err: any) => this.handleFilesError(err)
       });
-      return;
-    }
-    
-    // Si es un usuario normal, obtener sus números asociados
-    const userPhoneNumbers = this.authService.getUserPhoneNumbers();
-    
-    if (!userPhoneNumbers || userPhoneNumbers.length === 0) {
-      console.log('Usuario sin números asociados');
-      this.files = [];
-      this.originalFiles = [];
-      this.filteredFiles = [];
-      this.loading = false;
-      return;
-    }
-    
-    // Obtener archivos solo para los números asociados del usuario
-    // Podríamos hacer múltiples peticiones o adaptar el backend para aceptar una lista de números
-    console.log('Cargando archivos para los números:', userPhoneNumbers);
-    
-    // Por ahora, hacemos una petición por cada número (en una implementación real sería mejor adaptar el backend)
-    const observables = userPhoneNumbers.map(phoneNumber => 
-      this.fileService.getFilesByPhoneNumber(phoneNumber)
-    );
-    
-    // Combinamos los resultados
-    import('rxjs').then(({ forkJoin, of }) => {
-      forkJoin(observables.length ? observables : [of([])]).subscribe({
-        next: (filesArrays) => {
-          // Combinar todos los arrays de archivos
-          const allFiles = filesArrays.flat();
-          console.log('Archivos combinados:', allFiles);
-          
-          // Eliminar duplicados (por si un archivo aparece en varios números)
-          const uniqueFiles = this.removeDuplicates(allFiles, 'id');
-          
-          this.processFiles(uniqueFiles);
-          this.loading = false;
-        },
-        error: (err) => {
-          console.error('Error al cargar archivos de múltiples números:', err);
-          this.error = 'No se pudieron cargar los archivos. Por favor, intenta de nuevo.';
-          this.loading = false;
-        }
+    } else if (phoneNumbers.length === 1) {
+      // Si hay un solo número, pasarlo directamente como string
+      console.log(`FileListComponent: Obteniendo archivos para el número: ${phoneNumbers[0]}`);
+      this.fileService.getFilesByPhoneNumber(phoneNumbers[0]).subscribe({
+        next: (data: any[]) => this.handleFilesResponse(data),
+        error: (err: any) => this.handleFilesError(err)
       });
-    });
-  }
-  
-  /**
-   * Eliminar archivos duplicados por una propiedad
-   */
-  private removeDuplicates(array: any[], key: string): any[] {
-    return array.filter((item, index, self) =>
-      index === self.findIndex((t) => t[key] === item[key])
-    );
+    } else {
+      // Si hay múltiples números, cargar todos los archivos y filtrar en el cliente
+      console.log(`FileListComponent: Múltiples números detectados, obteniendo todos los archivos`);
+    this.fileService.getAllFiles().subscribe({
+        next: (data: any[]) => {
+          // Filtrar los archivos por los números de teléfono del usuario
+          const filteredData = data.filter(file => 
+            file.phoneNumber && phoneNumbers.some(number => file.phoneNumber.includes(number))
+          );
+          this.handleFilesResponse(filteredData);
+        },
+        error: (err: any) => this.handleFilesError(err)
+      });
+    }
   }
 
   /**
@@ -380,7 +418,7 @@ export class FileListComponent implements OnInit {
   private compareStrings(a: string, b: string): number {
     return a.localeCompare(b);
   }
-
+  
   /**
    * Formatear fecha para mostrar
    */
@@ -566,5 +604,22 @@ export class FileListComponent implements OnInit {
         backdrop.parentNode?.removeChild(backdrop);
       });
     }, 150);
+  }
+
+  private isAdmin(): boolean {
+    const currentUser = this.authService.getCurrentUser();
+    return currentUser?.username === 'admin' || 
+           !!(currentUser?.attributes && currentUser.attributes['role'] === 'admin');
+  }
+
+  private handleFilesResponse(data: any[]): void {
+    this.processFiles(data);
+    this.loading = false;
+  }
+
+  private handleFilesError(err: any): void {
+    console.error('Error al cargar archivos:', err);
+    this.error = 'No se pudieron cargar los archivos. Por favor, intenta de nuevo.';
+    this.loading = false;
   }
 }
